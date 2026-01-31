@@ -1,0 +1,1457 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
+  <title>চান্দা RUN - Arena Survival Game</title>
+  <style>
+    :root{
+      --bg:#0b1020;
+      --panel:rgba(255,255,255,.08);
+      --panel2:rgba(255,255,255,.12);
+      --text:#e9eefc;
+      --muted:rgba(233,238,252,.75);
+      --good:#34d399;
+      --warn:#fbbf24;
+      --bad:#fb7185;
+      --accent:#60a5fa;
+      --shadow: 0 10px 30px rgba(0,0,0,.35);
+      --radius:18px;
+    }
+    *{box-sizing:border-box; touch-action: manipulation;}
+    html,body{height:100%; margin:0; font-family: system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif; background: radial-gradient(1200px 800px at 30% 10%, #1d2a5a, var(--bg)); color:var(--text); overflow:hidden;}
+    #wrap{position:relative; width:100%; height:100%;}
+
+    /* Canvas full screen */
+    canvas{width:100%; height:100%; display:block;}
+
+    /* HUD */
+    .hud{
+      position:absolute; inset: 12px 12px auto 12px;
+      display:flex; gap:10px; align-items:flex-start; justify-content:space-between;
+      pointer-events:none;
+    }
+    .hud-left{
+      display:flex; flex-direction:column; gap:8px; pointer-events:none;
+    }
+    .pill{
+      pointer-events:none;
+      background:var(--panel);
+      border:1px solid rgba(255,255,255,.12);
+      border-radius:999px;
+      padding:8px 12px;
+      backdrop-filter: blur(10px);
+      box-shadow: var(--shadow);
+      display:flex; gap:10px; align-items:center;
+      font-size:13px;
+    }
+    .bar{
+      width:160px; height:10px; background:rgba(255,255,255,.10);
+      border-radius:999px; overflow:hidden; border:1px solid rgba(255,255,255,.10);
+    }
+    .bar > i{display:block; height:100%; width:50%; background:linear-gradient(90deg, var(--good), #22c55e); border-radius:999px;}
+    .money{font-weight:700; letter-spacing:.3px;}
+    .small{font-size:12px; color:var(--muted);}
+
+    /* Top right buttons */
+    .hud-right{display:flex; gap:10px; pointer-events:auto;}
+    .btn{
+      appearance:none; border:1px solid rgba(255,255,255,.16);
+      background:var(--panel2);
+      color:var(--text);
+      padding:10px 12px;
+      border-radius:14px;
+      font-weight:700;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(10px);
+      cursor:pointer;
+    }
+    .btn:active{transform: translateY(1px) scale(.99);}
+
+    /* Bottom controls */
+.controls{
+  position:absolute;
+  left:12px;
+  right:12px;
+  bottom:12px;
+  height: 140px;          /* enough space for joystick */
+  pointer-events:none;
+}
+
+    .moveHint{
+      pointer-events:none;
+      background:rgba(255,255,255,.07);
+      border:1px solid rgba(255,255,255,.10);
+      border-radius: var(--radius);
+      padding:10px 12px;
+      backdrop-filter: blur(10px);
+      box-shadow: var(--shadow);
+      max-width: 52vw;
+      font-size:12px;
+      color:var(--muted);
+      line-height:1.25;
+    }
+    .attackWrap{pointer-events:auto;}
+    .attackWrap{
+  position:absolute;
+  right:16px;
+  bottom:16px;
+  pointer-events:auto;
+}
+
+    .attackBtn{
+      width:92px; height:92px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.18);
+      background: radial-gradient(circle at 30% 30%, rgba(96,165,250,.75), rgba(96,165,250,.22));
+      box-shadow: 0 18px 35px rgba(96,165,250,.18), var(--shadow);
+      color: #eaf3ff;
+      font-weight:900;
+      letter-spacing:.7px;
+      text-transform:uppercase;
+      cursor:pointer;
+    }
+    .attackBtn:active{transform: scale(.98); filter:brightness(1.05);}
+    .cooldown{
+      margin-top:8px; text-align:center; font-size:12px; color:var(--muted);
+      background:rgba(255,255,255,.06);
+      border:1px solid rgba(255,255,255,.10);
+      border-radius:999px;
+      padding:6px 10px;
+      backdrop-filter: blur(10px);
+      box-shadow: var(--shadow);
+    }
+
+.speech{
+  position:absolute;
+  left:12px;
+  right:12px;
+
+  /* push speech below HUD dynamically */
+  top: calc(env(safe-area-inset-top, 0px) + 92px);
+
+  display:flex;
+  justify-content:center;
+  pointer-events:none;
+  z-index: 5;
+}
+@media (max-height: 700px) {
+  .speech {
+    top: calc(env(safe-area-inset-top, 0px) + 110px);
+  }
+}
+
+    .bubble{
+      max-width:min(560px, 92vw);
+      background:rgba(0,0,0,.35);
+      border:1px solid rgba(255,255,255,.14);
+      border-radius:18px;
+      padding:10px 12px;
+      backdrop-filter: blur(10px);
+      box-shadow: var(--shadow);
+      font-size:13px;
+      line-height:1.35;
+      color:rgba(255,255,255,.92);
+    }
+    .bubble b{color:var(--accent);}
+    .bubble .tag{
+      display:inline-block; padding:2px 8px; border-radius:999px;
+      border:1px solid rgba(255,255,255,.16);
+      background:rgba(255,255,255,.08);
+      margin-right:8px; font-size:12px; color:rgba(255,255,255,.85);
+    }
+
+    /* Modal */
+    .modalBack{
+      position:absolute; inset:0; background:rgba(0,0,0,.55);
+      backdrop-filter: blur(8px);
+      display:none; align-items:center; justify-content:center;
+      padding:18px;
+      z-index:50;
+    }
+    .modal{
+      width:min(560px, 100%);
+      background:rgba(15,20,40,.85);
+      border:1px solid rgba(255,255,255,.14);
+      border-radius:22px;
+      box-shadow: var(--shadow);
+      padding:16px;
+    }
+    .modal h2{margin:0 0 10px 0; font-size:18px;}
+    .row{display:flex; gap:10px; align-items:center;}
+    .modal .x{
+      margin-left:auto; background:rgba(255,255,255,.10);
+      border:1px solid rgba(255,255,255,.14);
+      width:38px; height:38px; border-radius:12px;
+      cursor:pointer; color:var(--text); font-weight:900;
+    }
+    .modal p{margin:8px 0 12px; color:var(--muted); font-size:13px; line-height:1.35;}
+    .list{
+      border:1px solid rgba(255,255,255,.12);
+      border-radius:16px;
+      overflow:hidden;
+    }
+    .item{
+      display:flex; justify-content:space-between; gap:12px;
+      padding:10px 12px;
+      background:rgba(255,255,255,.06);
+      border-top:1px solid rgba(255,255,255,.08);
+      font-size:13px;
+    }
+    .item:first-child{border-top:none;}
+    .rank{opacity:.85;}
+    .score{font-weight:800;}
+    .startPanel{
+      display:none;
+      position:absolute; inset:0;
+      align-items:center; justify-content:center;
+      padding:18px;
+      z-index:60;
+      background: radial-gradient(900px 600px at 40% 10%, rgba(96,165,250,.18), rgba(0,0,0,.65));
+      backdrop-filter: blur(8px);
+    }
+    .startCard{
+      width:min(560px, 100%);
+      background:rgba(15,20,40,.86);
+      border:1px solid rgba(255,255,255,.16);
+      border-radius:22px;
+      box-shadow: var(--shadow);
+      padding:18px;
+    }
+    .startCard h1{margin:0 0 6px; font-size:20px;}
+    .startCard .sub{margin:0 0 14px; color:var(--muted); font-size:13px; line-height:1.35;}
+    .field{
+      display:flex; gap:10px; flex-wrap:wrap; align-items:center;
+      margin-top:12px;
+    }
+    input[type="text"]{
+      flex:1 1 200px;
+      padding:12px 12px;
+      border-radius:14px;
+      border:1px solid rgba(255,255,255,.16);
+      background:rgba(255,255,255,.08);
+      color:var(--text);
+      outline:none;
+    }
+    .primary{
+      padding:12px 14px;
+      border-radius:14px;
+      border:1px solid rgba(255,255,255,.18);
+      background:linear-gradient(180deg, rgba(96,165,250,.55), rgba(96,165,250,.22));
+      color:#eaf3ff;
+      font-weight:900;
+      cursor:pointer;
+      box-shadow: 0 18px 35px rgba(96,165,250,.16), var(--shadow);
+    }
+    .primary:active{transform: translateY(1px) scale(.99);}
+    .kbd{
+      display:inline-block;
+      padding:2px 8px;
+      border:1px solid rgba(255,255,255,.16);
+      border-radius:999px;
+      background:rgba(255,255,255,.08);
+      color:rgba(255,255,255,.9);
+      font-size:12px;
+      margin:0 4px;
+      white-space:nowrap;
+    }
+    .foot{margin-top:10px; color:rgba(255,255,255,.70); font-size:12px;}
+    /* Virtual Joystick */
+/* Virtual Joystick – FIXED LEFT */
+.joyZone{
+  position: absolute;
+  left: 16px;
+  bottom: 16px;
+
+  pointer-events:auto;
+  width: 140px;
+  height: 140px;
+  border-radius: 22px;
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.10);
+  backdrop-filter: blur(10px);
+  box-shadow: var(--shadow);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+
+  user-select:none;
+  -webkit-user-select:none;
+  touch-action: none;
+  z-index: 20;
+}
+
+.joyBase{
+  width: 110px;
+  height: 110px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.08);
+  border: 1px solid rgba(255,255,255,.12);
+  position: relative;
+}
+.joyStick{
+  width: 52px;
+  height: 52px;
+  border-radius: 999px;
+  position:absolute;
+  left:50%;
+  top:50%;
+  transform: translate(-50%,-50%);
+  background: radial-gradient(circle at 30% 30%, rgba(96,165,250,.85), rgba(96,165,250,.25));
+  border: 1px solid rgba(255,255,255,.16);
+  box-shadow: 0 16px 30px rgba(96,165,250,.18), var(--shadow);
+}
+.introImg{
+  width:100%;
+  max-height:220px;
+  object-fit:cover;
+  border-radius:14px;
+  margin:10px 0 12px;
+  border:1px solid rgba(255,255,255,.15);
+  box-shadow: 0 10px 25px rgba(0,0,0,.35);
+}
+
+.howto{
+  background:rgba(255,255,255,.06);
+  border:1px solid rgba(255,255,255,.12);
+  border-radius:14px;
+  padding:10px 12px;
+  font-size:13px;
+  color:rgba(255,255,255,.85);
+  line-height:1.4;
+}
+
+  </style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="game" aria-label="Zombie Survival Game"></canvas>
+
+  <div class="hud">
+    <div class="hud-left">
+      <div class="pill">
+        <span>❤️</span>
+        <div class="bar" aria-label="Health bar"><i id="hpFill"></i></div>
+        <span class="small" id="hpText">100/100</span>
+      </div>
+      <div class="pill">
+        <span>💰</span>
+        <span class="money" id="moneyText">0</span>
+        <span class="small">চাঁদার পরিমাণ</span>
+        <span style="margin-left:auto" class="small" id="diffText">Wave 1</span>
+      </div>
+    </div>
+
+    <div class="hud-right">
+      <button class="btn" id="topBtn">🏆 সেরা চাঁদাবাজ </button>
+      <button class="btn" id="pauseBtn">⏸︎</button>
+    </div>
+  </div>
+
+  <div class="speech">
+    <div class="bubble" id="bubble">
+      <span class="tag">চাঁদাবাজ</span>
+      স্বাগতম! যেদিকে খুশি টানো, সেদিকেই দৌড়াও।
+<b>ATTACK</b> চাপ দাও 
+
+    </div>
+  </div>
+
+  <div class="controls">
+ 
+<!-- Virtual Joystick (mobile) -->
+<div class="joyZone" id="joyZone" aria-label="Move joystick">
+  <div class="joyBase" id="joyBase">
+    <div class="joyStick" id="joyStick"></div>
+  </div>
+</div>
+
+    <div class="attackWrap">
+      <button class="attackBtn" id="attackBtn">ATTACK</button>
+      <div class="cooldown" id="cdText">Ready</div>
+    </div>
+  </div>
+
+  <!-- Top Players Modal -->
+  <div class="modalBack" id="modalBack" role="dialog" aria-modal="true">
+    <div class="modal">
+      <div class="row">
+        <h2>🏆 সেরা চাঁদাবাজ</h2>
+        <button class="x" id="closeModal" aria-label="Close">✕</button>
+      </div>
+      <p>জাতীয় লিডারবোর্ড — দেশের সেরা চাঁদাবাজদের তালিকা 🇧🇩🏆</p>
+      <div class="list" id="lbList"></div>
+    </div>
+  </div>
+<!-- Start Screen -->
+<div class="startPanel" id="startPanel">
+  <div class="startCard">
+
+    <h1>⚡চান্দা Run</h1>
+
+<!-- GAME IMAGE -->
+<img src="./poster_large.webp" alt="Chanda Run gameplay" class="introImg" />
+
+<!-- EXPLANATION -->
+<p class="sub">
+  তুমি এখানে নায়ক না — তুমি <b>চাঁদাবাজ</b> 😈<br>
+  টাকা তুলতে থাকো, আর যেসব <b>বেয়াদব</b> দেখছো,
+  তারা তোমাকে থামাতে এসেছে।
+  যত বেশি চাঁদা তুলবে, তত বেশি বেয়াদব পেছনে লাগবে।
+</p>
+
+<div class="howto">
+  <p>🕹️ <b>চলাফেরা</b>: Drag / Joystick / WASD</p>
+  <p>⚡ <b>খাম্বা আক্রমণ</b>: <b>ATTACK</b> চাপো বা <b>Space</b> মারো</p>
+  <p>✈️ <b>ফ্যামিলি কার্ড </b>: প্রতি ৩০ সেকেন্ডে একবার</p>
+  <p>☠️ <b>লক্ষ্য</b>: ধরা পড়ো না। চাঁদা তুলতেই থাকো।</p>
+</div>
+
+<div class="field">
+  <input id="nameInput" type="text" maxlength="16" placeholder="তোমার নাম লেখো" />
+  <button class="primary" id="startBtn">চাঁদা শুরু</button>
+</div>
+
+<div class="foot">
+  টিপস: বেশি চাঁদা = বেশি ঝামেলা 😏
+</div>
+
+
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<script>
+
+
+(() => {
+  // ===== Helpers =====
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const rand = (a, b) => a + Math.random() * (b - a);
+  const dist2 = (ax, ay, bx, by) => (ax - bx) ** 2 + (ay - by) ** 2;
+
+  // ===== Canvas Setup =====
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
+  function getViewSize(){
+  // Most stable on mobile (address bar show/hide)
+  if (window.visualViewport) {
+    return {
+      w: Math.round(window.visualViewport.width),
+      h: Math.round(window.visualViewport.height)
+    };
+  }
+  // Fallback: actual canvas display size
+  const r = canvas.getBoundingClientRect();
+  return { w: Math.round(r.width), h: Math.round(r.height) };
+}
+
+  let DPR = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+
+function resize() {
+  const { w, h } = getViewSize(); // use same view size as camera
+  canvas.width = Math.floor(w * DPR);
+  canvas.height = Math.floor(h * DPR);
+  canvas.style.width = w + 'px';
+  canvas.style.height = h + 'px';
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+}
+window.addEventListener('resize', resize, {passive:true});
+if (window.visualViewport) {
+  window.visualViewport.addEventListener('resize', resize, {passive:true});
+  window.visualViewport.addEventListener('scroll', resize, {passive:true}); // iOS Safari helps
+}
+resize();
+
+
+  // ===== UI =====
+  const hpFill = document.getElementById('hpFill');
+  const hpText = document.getElementById('hpText');
+  const moneyText = document.getElementById('moneyText');
+  const diffText = document.getElementById('diffText');
+  const bubble = document.getElementById('bubble');
+  const cdText = document.getElementById('cdText');
+
+  const topBtn = document.getElementById('topBtn');
+  const pauseBtn = document.getElementById('pauseBtn');
+  const modalBack = document.getElementById('modalBack');
+  const closeModal = document.getElementById('closeModal');
+  const lbList = document.getElementById('lbList');
+
+  const startPanel = document.getElementById('startPanel');
+  const startBtn = document.getElementById('startBtn');
+  const nameInput = document.getElementById('nameInput');
+
+  const attackBtn = document.getElementById('attackBtn');
+
+  // ===== "Photo characters" via embedded SVG images =====
+  function svgDataURI(svg) {
+    return "data:image/svg+xml;utf8," + encodeURIComponent(svg);
+  }
+
+  // Hero "photo-style" portrait (simple but image-based)
+  const HERO_IMG = new Image();
+ HERO_IMG.src = "./chanda.webp";   // or hero.jpg
+  // Zombie "photo-style" portrait
+  const ZOMBIE_IMG = new Image();
+  ZOMBIE_IMG.src = "./durby.webp"; 
+
+  // Airdrop crate image
+  const DROP_IMG = new Image();
+  DROP_IMG.src = "./familycard.webp"; 
+
+  // ===== World =====
+  const world = {
+    w: 1800,
+    h: 1200
+  };
+// ===== Pre-rendered background (performance) =====
+const bg = document.createElement("canvas");
+const bgc = bg.getContext("2d", { alpha: false });
+
+function buildBackground(){
+  bg.width = world.w;
+  bg.height = world.h;
+
+  // Base
+  bgc.fillStyle = "#070b18";
+  bgc.fillRect(0, 0, world.w, world.h);
+
+  // Soft lighting patches (draw once)
+  for(let i=0;i<8;i++){
+    const gx = (i*240 + 120) % world.w;
+    const gy = (i*170 + 90) % world.h;
+    const r = 240;
+    const grad = bgc.createRadialGradient(gx,gy,0,gx,gy,r);
+    grad.addColorStop(0,"rgba(96,165,250,0.07)");
+    grad.addColorStop(1,"rgba(0,0,0,0)");
+    bgc.fillStyle = grad;
+    bgc.beginPath(); bgc.arc(gx,gy,r,0,Math.PI*2); bgc.fill();
+  }
+
+  // Grid (draw once)
+  bgc.globalAlpha = 0.22;
+  bgc.strokeStyle = "rgba(255,255,255,0.10)";
+  for(let x=0;x<=world.w;x+=80){
+    bgc.beginPath(); bgc.moveTo(x,0); bgc.lineTo(x,world.h); bgc.stroke();
+  }
+  for(let y=0;y<=world.h;y+=80){
+    bgc.beginPath(); bgc.moveTo(0,y); bgc.lineTo(world.w,y); bgc.stroke();
+  }
+  bgc.globalAlpha = 1;
+}
+
+buildBackground();
+
+  // ===== Game State =====
+  let running = false;
+  let paused = false;
+  let lastTime = 0;
+
+  let playerName = "Player";
+  const player = {
+    x: world.w/2,
+    y: world.h/2,
+    r: 22,
+    speed: 260,
+    hp: 100,
+    hpMax: 100,
+    regenPerSec: 4.5, // auto heal
+    money: 0,
+    facing: 0,
+    // attack
+    attackActive: false,
+    attackT: 0,
+    attackDur: 0.80,
+    attackCooldown: 0,
+    attackCooldownMax: 0.95,
+    poleLen: 62,
+    poleWidth: 10,
+    poleSpin: 0,
+    invuln: 0
+  };
+
+  const camera = { x: 0, y: 0 };
+
+  const zombies = [];
+  const coins = [];
+  const MAX_ZOMBIES = 55;   // 35–45 for very weak phones
+const MAX_COINS   = 60;
+
+  let airdrops = []; // each: {x,y,r,active,t}
+  let nextAirdrop = 30; // seconds
+  let speechTimer = 0;
+  let speechEvery = 7.5; // regular chatter
+  let thirtySecTimer = 0;
+
+  // Difficulty scaling with money
+  function difficulty() {
+    const m = player.money;
+    const wave = 1 + Math.floor(m / 250);
+    const spawnRate = 0.7 + wave * 0.35;         // zombies/sec
+    const zSpeed = 110 + wave * 14;              // px/sec
+    const zHP = 24 + wave * 10;                  // base HP
+    const zDamage = 10 + wave * 2;               // touch damage
+    return { wave, spawnRate, zSpeed, zHP, zDamage };
+  }
+// ===== Real Leaderboard (Supabase) =====
+const SUPABASE_URL = "https://cjkvhpkpmlsexohbkuek.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNqa3ZocGtwbWxzZXhvaGJrdWVrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk4NTMzMjAsImV4cCI6MjA4NTQyOTMyMH0.s0th4ABHb0SD7ZPrvzf0Q1s-JC5G1r9s2Q3cOTeJj1w";
+const supa = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+async function submitScoreReal(name, score){
+  name = (name || "Player").trim().slice(0,16) || "Player";
+  score = Math.max(0, Math.floor(score || 0));
+
+  // Keep only best score per name (simple approach):
+  // 1) read existing best
+  const { data: existing } = await supa
+    .from("scores")
+    .select("id,score")
+    .eq("name", name)
+    .order("score", { ascending:false })
+    .limit(1);
+
+  const best = existing?.[0];
+  if(best && best.score >= score) return; // don't downgrade
+
+  // 2) insert new (or you can update best row if you prefer)
+  await supa.from("scores").insert([{ name, score }]);
+}
+
+async function loadTopScoresReal(limit=10){
+  const { data, error } = await supa
+    .from("scores")
+    .select("name,score,created_at")
+    .order("score", { ascending:false })
+    .limit(limit);
+
+  if(error) return [];
+  return data || [];
+}
+
+async function renderLBReal(){
+  const lb = await loadTopScoresReal(10);
+  lbList.innerHTML = lb.map((e,i)=>`
+    <div class="item">
+      <div><span class="rank">#${i+1}</span> &nbsp; <b>${escapeHTML(e.name)}</b></div>
+      <div class="score">💰 ${e.score}</div>
+    </div>
+  `).join("");
+}
+
+  // ===== Leaderboard (localStorage) =====
+  const LB_KEY = "kzcr_leaderboard_v1";
+  const defaultNames = [
+    {name:"AsoTiger", score: 420},
+    {name:"BeppuRunner", score: 360},
+    {name:"ChocoBoss", score: 300},
+    {name:"PoleSpinner", score: 240},
+    {name:"NightDriver", score: 180},
+  ];
+  function loadLB(){
+    try{
+      const raw = localStorage.getItem(LB_KEY);
+      if(!raw) return [...defaultNames];
+      const parsed = JSON.parse(raw);
+      if(!Array.isArray(parsed)) return [...defaultNames];
+      return parsed.slice(0,10);
+    }catch{
+      return [...defaultNames];
+    }
+  }
+  function saveLB(lb){
+    localStorage.setItem(LB_KEY, JSON.stringify(lb.slice(0,10)));
+  }
+  function submitScore(name, score){
+    let lb = loadLB();
+    lb.push({name, score});
+    lb.sort((a,b)=>b.score-a.score);
+    // merge by name (keep best)
+    const seen = new Map();
+    const merged = [];
+    for(const e of lb){
+      const key = (e.name||"").trim() || "Player";
+      if(!seen.has(key)){
+        seen.set(key, e.score);
+        merged.push({name:key, score:e.score});
+      } else {
+        const best = Math.max(seen.get(key), e.score);
+        seen.set(key, best);
+        const idx = merged.findIndex(x => x.name === key);
+        merged[idx].score = best;
+      }
+    }
+    merged.sort((a,b)=>b.score-a.score);
+    saveLB(merged);
+  }
+  function renderLB(){
+    const lb = loadLB().slice(0,10);
+    lbList.innerHTML = lb.map((e,i)=>`
+      <div class="item">
+        <div><span class="rank">#${i+1}</span> &nbsp; <b>${escapeHTML(e.name)}</b></div>
+        <div class="score">💰 ${e.score}</div>
+      </div>
+    `).join("");
+  }
+  function escapeHTML(s){
+    return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
+  }
+
+  // ===== Speech system =====
+  function say(tag, text){
+    bubble.innerHTML = `<span class="tag">${escapeHTML(tag)}</span>${escapeHTML(text)}`;
+  }
+  function situationalSpeech(){
+    const near = zombies.some(z => dist2(z.x,z.y,player.x,player.y) < (180*180));
+    const low = player.hp < player.hpMax * 0.35;
+    const rich = player.money >= 500;
+    const dropActive = airdrops.some(d => d.active);
+    if(low && near) return ["চাঁদাবাজ ","বাবা রে বাবা! আমাকে বাঁচাও — এই বেয়াদবরা একদম গায়ে উঠে আসছে!"];
+    if(near) return ["চাঁদাবাজ","হায় হায় রে! সব শেষ… পালাও, পালাও!!"];
+    if(dropActive) return ["চাঁদাবাজ","ওই ওই! সবার প্রিয় ফ্যামিলি কার্ড এসে গেছে—ঝটপট নিয়ে নাও!"];
+    if(rich) return ["চাঁদাবাজ","চাঁদা বাড়ছে—বেয়াদবগুলাও শক্তিশালী হচ্ছে!"];
+    return ["চাঁদাবাজ","আগে কালেকশন, বাঁচা-মরা পরে দেখা যাবে 😏"];
+  }
+  function randomChatter(){
+    const lines = [
+      "খাম্বা এয়ারলাইন্স আবার দেরি করতেছে… নতুন কিছু না 😑",
+    "বেঁচে ফিরতে পারলে ডাবল চান্দা তুলবো",
+    "আমি বড়োলোকের বন্ধু , গরিবের দুশমন ",
+    "এই খাম্বার একটাই কাজ—ঘুরবে আর বেয়াদব সাইজ করবে  ⚡",
+    "টাকা দেখলে চিন্তা নাই—উঠিয়ে নাও। নিয়ম আমরাই বানাই 😌"
+    ];
+    return ["চাঁদাবাজ ", lines[Math.floor(Math.random()*lines.length)]];
+  }
+  function thirtySecondBeat(){
+    const lines = [
+       "৩০ সেকেন্ড পার। সময় যায়… কিন্তু বেয়াদবরা থামে না।",
+    "আরেকটু সময় গেল—চোখ রাখো চাঁদার দিকে।",
+    "এইটা পড়তে পারছো মানে এখনো মরো নাই। ভালোই চলতেছে 😏"
+    ];
+    return ["চাঁদাবাজ ", lines[Math.floor(Math.random()*lines.length)]];
+  }
+function pushCoin(c){
+  if (coins.length >= MAX_COINS) return;
+  coins.push(c);
+}
+
+  // ===== Spawning =====
+  function spawnCoin(){
+     pushCoin({
+      x: rand(40, world.w-40),
+      y: rand(40, world.h-40),
+      r: 10,
+      val: Math.random() < 0.15 ? 25 : 10
+    });
+  }
+function spawnZombie(){
+  const d = difficulty();
+
+  // Spawn outside view-ish
+  const side = Math.floor(rand(0,4));
+  let x,y;
+  if(side===0){ x = rand(0, world.w); y = -40; }
+  if(side===1){ x = world.w+40; y = rand(0, world.h); }
+  if(side===2){ x = rand(0, world.w); y = world.h+40; }
+  if(side===3){ x = -40; y = rand(0, world.h); }
+
+  const baseHP = d.zHP + rand(-6, 10);
+
+  zombies.push({
+    x, y,
+    r: 20,
+    hp: baseHP,
+    hpMax: baseHP,            // ✅ IMPORTANT
+    speed: d.zSpeed + rand(-10, 18),
+    dmg: d.zDamage,
+    hitFlash: 0
+  });
+}
+
+  function spawnAirdrop(){
+    const x = clamp(player.x + rand(-280, 280), 80, world.w-80);
+    const y = clamp(player.y + rand(-220, 220), 80, world.h-80);
+    airdrops.push({x,y,r:28, active:true, t:0});
+   say("চাঁদাবাজ", "✈️ খাম্বা এয়ারলাইন্স ড্রপ! দৌড়াও দৌড়াও!");
+
+  }
+
+  // Start with some coins
+  for(let i=0;i<28;i++) spawnCoin();
+
+  // ===== Input =====
+  let touchActive = false;
+  let target = null; // {x,y} world target for movement
+  // ===== Virtual Joystick (mobile) =====
+const joyZone = document.getElementById("joyZone");
+const joyBase = document.getElementById("joyBase");
+const joyStick = document.getElementById("joyStick");
+
+let joyActive = false;
+let joyId = null;      // pointerId
+let joyVec = { x: 0, y: 0 }; // normalized [-1..1]
+let joyCenter = { x: 0, y: 0 };
+const JOY_MAX = 42; // px travel
+
+function setJoyCenter(){
+  const r = joyBase.getBoundingClientRect();
+  joyCenter.x = r.left + r.width/2;
+  joyCenter.y = r.top + r.height/2;
+}
+setJoyCenter();
+window.addEventListener("resize", setJoyCenter, {passive:true});
+
+function joyMoveTo(dx, dy){
+  const len = Math.hypot(dx, dy) || 1;
+  const cl = Math.min(len, JOY_MAX);
+  const nx = dx / len;
+  const ny = dy / len;
+
+  // stick position
+  const px = nx * cl;
+  const py = ny * cl;
+  joyStick.style.transform = `translate(${px}px, ${py}px) translate(-50%,-50%)`;
+
+  // normalized vector
+  const strength = cl / JOY_MAX;
+  joyVec.x = nx * strength;
+  joyVec.y = ny * strength;
+}
+
+function joyReset(){
+  joyStick.style.transform = "translate(-50%,-50%)";
+  joyVec.x = 0; joyVec.y = 0;
+  joyActive = false;
+  joyId = null;
+}
+
+joyZone.addEventListener("pointerdown", (e) => {
+  e.preventDefault();
+  joyZone.setPointerCapture(e.pointerId);
+  joyId = e.pointerId;
+  joyActive = true;
+  setJoyCenter();
+
+  // cancel tap-to-move targeting when joystick is used
+  target = null;
+
+  const dx = e.clientX - joyCenter.x;
+  const dy = e.clientY - joyCenter.y;
+  joyMoveTo(dx, dy);
+}, {passive:false});
+
+joyZone.addEventListener("pointermove", (e) => {
+  if(!joyActive || e.pointerId !== joyId) return;
+  e.preventDefault();
+  const dx = e.clientX - joyCenter.x;
+  const dy = e.clientY - joyCenter.y;
+  joyMoveTo(dx, dy);
+}, {passive:false});
+
+joyZone.addEventListener("pointerup", (e) => {
+  if(e.pointerId !== joyId) return;
+  e.preventDefault();
+  joyReset();
+}, {passive:false});
+
+joyZone.addEventListener("pointercancel", (e) => {
+  if(e.pointerId !== joyId) return;
+  joyReset();
+}, {passive:true});
+
+  const keys = new Set();
+
+  function canvasToWorld(clientX, clientY){
+    // Convert screen coords to world coords using camera
+    const rect = canvas.getBoundingClientRect();
+    const sx = (clientX - rect.left);
+    const sy = (clientY - rect.top);
+    return { x: sx + camera.x, y: sy + camera.y };
+  }
+
+  function setMoveTargetFromEvent(e){
+    const p = (e.touches && e.touches[0]) ? e.touches[0] : e;
+    const w = canvasToWorld(p.clientX, p.clientY);
+   target = {
+  x: clamp(w.x, player.r, world.w - player.r),
+  y: clamp(w.y, player.r, world.h - player.r)
+};
+
+  }
+
+  canvas.addEventListener('pointerdown', (e)=>{
+    touchActive = true;
+    setMoveTargetFromEvent(e);
+  }, {passive:true});
+  canvas.addEventListener('pointermove', (e)=>{
+    if(!touchActive) return;
+    setMoveTargetFromEvent(e);
+  }, {passive:true});
+  window.addEventListener('pointerup', ()=>{ touchActive = false; }, {passive:true});
+  window.addEventListener('pointercancel', ()=>{ touchActive = false; }, {passive:true});
+
+window.addEventListener('keydown', (e)=>{
+  const isTyping =
+    document.activeElement &&
+    (document.activeElement.tagName === "INPUT" ||
+     document.activeElement.tagName === "TEXTAREA");
+
+  // If typing in input → DO NOTHING
+  if (isTyping) return;
+
+  // Game-only keys
+  if([
+    "ArrowUp","ArrowDown","ArrowLeft","ArrowRight",
+    " ","w","a","s","d","W","A","S","D"
+  ].includes(e.key)) e.preventDefault();
+
+  keys.add(e.key);
+
+  if(e.key === " "){
+    doAttack();
+  }
+}, { passive:false });
+
+  window.addEventListener('keyup', (e)=> keys.delete(e.key), {passive:true});
+
+  // ===== Attack =====
+  function doAttack(){
+    if(paused || !running) return;
+    if(player.attackCooldown > 0 || player.attackActive) return;
+    player.attackActive = true;
+    player.attackT = 0;
+    player.poleSpin = 0;
+    player.attackCooldown = player.attackCooldownMax;
+    say(...situationalSpeech());
+  }
+
+  attackBtn.addEventListener('click', doAttack, {passive:true});
+  attackBtn.addEventListener('touchstart', (e)=>{ e.preventDefault(); doAttack(); }, {passive:false});
+
+  // ===== Pause =====
+  pauseBtn.addEventListener('click', ()=>{
+    if(!running) return;
+    paused = !paused;
+    pauseBtn.textContent = paused ? "▶︎" : "⏸︎";
+say("চাঁদাবাজ", paused ? "পজ। একটু শ্বাস নাও। বেয়াদবরা কিন্তু নেয় না।" : "আবার শুরু। চোখের পলক ফেলো না।");
+  });
+
+async function openLB(){
+  await renderLBReal();
+  modalBack.style.display = "flex";
+  paused = true;
+  pauseBtn.textContent = "▶︎";
+}
+
+  function closeLB(){
+    modalBack.style.display = "none";
+  }
+  topBtn.addEventListener('click', openLB);
+  closeModal.addEventListener('click', closeLB);
+  modalBack.addEventListener('click', (e)=>{ if(e.target === modalBack) closeLB(); });
+
+  // ===== Start Screen =====
+  function showStart(){
+    startPanel.style.display = "flex";
+    nameInput.value = localStorage.getItem("kzcr_name") || "";
+    setTimeout(()=>nameInput.focus(), 50);
+  }
+  function begin(){
+    playerName = (nameInput.value || "Player").trim().slice(0,16) || "Player";
+    localStorage.setItem("kzcr_name", playerName);
+
+    // reset state
+    player.x = world.w/2; player.y = world.h/2;
+    player.hp = player.hpMax;
+    player.money = 0;
+    player.attackActive = false;
+    player.attackCooldown = 0;
+    player.invuln = 0;
+
+    zombies.length = 0;
+    coins.length = 0;
+    airdrops = [];
+    for(let i=0;i<28;i++) spawnCoin();
+
+    nextAirdrop = 30;
+    speechTimer = 0;
+    thirtySecTimer = 0;
+
+    paused = false;
+    pauseBtn.textContent = "⏸︎";
+
+  say("চাঁদাবাজ ", `ঠিক আছে ${playerName}। টাকা নাও, খাম্বা ঘুরাও, । ইজি 😎`);
+
+    startPanel.style.display = "none";
+    running = true;
+    lastTime = performance.now();
+    requestAnimationFrame(loop);
+  }
+  startBtn.addEventListener('click', begin);
+  nameInput.addEventListener('keydown', (e)=>{ if(e.key==="Enter") begin(); });
+
+  // ===== Game Loop =====
+  function update(dt){
+    if(paused) return;
+
+    // Timers
+    player.attackCooldown = Math.max(0, player.attackCooldown - dt);
+    player.invuln = Math.max(0, player.invuln - dt);
+
+    // Auto-heal
+    if(player.hp < player.hpMax){
+      player.hp = Math.min(player.hpMax, player.hp + player.regenPerSec * dt);
+    }
+
+    // Speech cadence
+    speechTimer += dt;
+    if(speechTimer >= speechEvery){
+      speechTimer = 0;
+      say(...randomChatter());
+    }
+    thirtySecTimer += dt;
+    if(thirtySecTimer >= 30){
+      thirtySecTimer -= 30;
+      say(...thirtySecondBeat());
+    }
+
+    // Airdrop cadence
+    nextAirdrop -= dt;
+    if(nextAirdrop <= 0){
+      nextAirdrop += 30;
+      spawnAirdrop();
+    }
+
+// Movement: joystick (mobile) OR keyboard OR tap-target
+let vx = 0, vy = 0;
+// ✅ HARD CLAMP: keep player inside the world always
+player.x = clamp(player.x, player.r, world.w - player.r);
+player.y = clamp(player.y, player.r, world.h - player.r);
+
+// 1) Joystick overrides while active (or if stick is not centered)
+if (joyVec.x !== 0 || joyVec.y !== 0) {
+  vx = joyVec.x;
+  vy = joyVec.y;
+
+  player.x += vx * player.speed * dt;
+  player.y += vy * player.speed * dt;
+  player.facing = Math.atan2(vy, vx);
+
+} else {
+  // 2) Keyboard fallback
+  const up = keys.has("ArrowUp") || keys.has("w") || keys.has("W");
+  const dn = keys.has("ArrowDown") || keys.has("s") || keys.has("S");
+  const lf = keys.has("ArrowLeft") || keys.has("a") || keys.has("A");
+  const rt = keys.has("ArrowRight") || keys.has("d") || keys.has("D");
+
+  if(up) vy -= 1;
+  if(dn) vy += 1;
+  if(lf) vx -= 1;
+  if(rt) vx += 1;
+
+  if(vx !== 0 || vy !== 0){
+    const len = Math.hypot(vx,vy) || 1;
+    vx /= len; vy /= len;
+    player.x += vx * player.speed * dt;
+    player.y += vy * player.speed * dt;
+    player.facing = Math.atan2(vy, vx);
+  } else if(target){
+    // 3) Tap-to-move target fallback
+    const dx = target.x - player.x;
+    const dy = target.y - player.y;
+    const d = Math.hypot(dx,dy);
+    if(d > 8){
+      const nx = dx / d, ny = dy / d;
+      player.x += nx * player.speed * dt;
+      player.y += ny * player.speed * dt;
+      player.facing = Math.atan2(ny, nx);
+    }
+  }
+}
+
+
+    // Attack spin
+    if(player.attackActive){
+      player.attackT += dt;
+      const t = player.attackT / player.attackDur;
+      player.poleSpin += dt * (Math.PI * 8.5); // fast spin
+      const done = t >= 1;
+      // Damage zombies in arc/radius each frame
+      const hitRadius = player.poleLen + 16;
+      for(const z of zombies){
+        if(z.hp <= 0) continue;
+        if(dist2(z.x,z.y,player.x,player.y) < hitRadius * hitRadius){
+          // "electric pole" damage
+          z.hp -= 75 * dt; // DPS while spinning
+          z.hitFlash = 0.08;
+        }
+      }
+      if(done){
+        player.attackActive = false;
+      }
+    }
+
+    // Spawn scaling zombies
+    const d = difficulty();
+    diffText.textContent = `Wave ${d.wave}`;
+    // Spawn accumulator (zombies/sec)
+    if(!update._spawnAcc) update._spawnAcc = 0;
+    update._spawnAcc += d.spawnRate * dt;
+while(update._spawnAcc >= 1){
+  update._spawnAcc -= 1;
+
+  if (zombies.length < MAX_ZOMBIES) spawnZombie();
+
+  // occasional extra spawn at higher waves (still capped)
+  if(d.wave >= 4 && Math.random() < 0.18 && zombies.length < MAX_ZOMBIES){
+    spawnZombie();
+  }
+}
+
+
+    // Zombies AI + collision
+    for(const z of zombies){
+      z.hitFlash = Math.max(0, z.hitFlash - dt);
+      const dx = player.x - z.x;
+      const dy = player.y - z.y;
+      const dist = Math.hypot(dx,dy) || 1;
+      const nx = dx / dist, ny = dy / dist;
+      z.x += nx * z.speed * dt;
+      z.y += ny * z.speed * dt;
+
+      // Touch damage
+      const touch = (player.r + z.r) * 0.96;
+      if(dist < touch){
+        if(player.invuln <= 0){
+          player.hp -= z.dmg;
+          player.invuln = 0.45;
+          say("চাঁদাবাজ ", player.hp <= 0 ? "No… no… NO—" : "আরেকটু হলেই কেলিয়ে দিয়েছিল!");
+        }
+      }
+    }
+// Remove dead zombies + reward money
+for(let i=zombies.length-1;i>=0;i--){
+  const z = zombies[i];
+  if(z.hp <= 0){
+
+    // 💰 MONEY PER KILL (scales with wave)
+    const killReward = 5 + difficulty().wave * 2;
+    player.money += killReward;
+
+    // Optional: still drop some coins (visual feedback)
+    const drops = Math.random() < 0.25 ? 2 : 1;
+    for(let k=0;k<drops;k++){
+    pushCoin({
+  x: z.x + rand(-12,12),
+  y: z.y + rand(-12,12),
+  r: 10,
+  val: 10
+});
+
+    }
+
+    zombies.splice(i,1);
+  }
+}
+
+    // Collect coins
+    for(let i=coins.length-1;i>=0;i--){
+      const c = coins[i];
+      if(dist2(c.x,c.y,player.x,player.y) < (player.r + c.r + 6) ** 2){
+        player.money += c.val;
+        coins.splice(i,1);
+        if(coins.length < 22 && Math.random() < 0.6) spawnCoin();
+      }
+    }
+
+    // Airdrops: collect for bonus
+    for(const drop of airdrops){
+      if(!drop.active) continue;
+      drop.t += dt;
+      if(dist2(drop.x,drop.y,player.x,player.y) < (player.r + drop.r + 6) ** 2){
+        drop.active = false;
+        // reward scales with wave
+        const bonus = 80 + d.wave * 25;
+        player.money += bonus;
+        player.hp = Math.min(player.hpMax, player.hp + 30);
+        say("চাঁদাবাজ ", `এয়ারড্রপ হাতে! +${bonus} টাকা। চিকিৎসাও ফ্রি—আহা, ফ্যামিলি কার্ডের জোর 😎`);
+
+      }
+      // expire after some time
+      if(drop.t > 12) drop.active = false;
+    }
+
+    // UI
+    const hpPct = clamp(player.hp / player.hpMax, 0, 1);
+    hpFill.style.width = (hpPct * 100).toFixed(1) + "%";
+    hpFill.style.background = hpPct > 0.5
+      ? "linear-gradient(90deg, var(--good), #22c55e)"
+      : hpPct > 0.25
+        ? "linear-gradient(90deg, var(--warn), #f59e0b)"
+        : "linear-gradient(90deg, var(--bad), #fb7185)";
+    hpText.textContent = `${Math.ceil(player.hp)}/${player.hpMax}`;
+    moneyText.textContent = `${player.money}`;
+    cdText.textContent = player.attackCooldown <= 0 ? "Ready" : `Cooldown ${(player.attackCooldown).toFixed(1)}s`;
+
+    // Camera follow
+const { w: vw, h: vh } = getViewSize();
+
+// keep a small safety margin so the hero never touches screen edges
+const padX = 40, padY = 80;
+
+camera.x = clamp(player.x - vw/2, 0, Math.max(0, world.w - vw));
+camera.y = clamp(player.y - vh/2, 0, Math.max(0, world.h - vh));
+
+// optional: enforce "hero always visible" padding even near edges
+camera.x = clamp(camera.x, 0, Math.max(0, world.w - vw));
+camera.y = clamp(camera.y, 0, Math.max(0, world.h - vh));
+
+
+    // Death
+    if(player.hp <= 0){
+      gameOver();
+    }
+  }
+
+  function draw(){
+const { w: vw, h: vh } = getViewSize();
+ctx.clearRect(0, 0, vw, vh);
+
+
+    // World background grid (stylized)
+    ctx.save();
+    ctx.translate(-camera.x, -camera.y);
+
+ // Background (FAST): draw pre-rendered world
+ctx.drawImage(bg, 0, 0);
+
+
+    // Coins
+    for(const c of coins){
+      ctx.save();
+      ctx.translate(c.x, c.y);
+      ctx.shadowColor = "rgba(251,191,36,.35)";
+      ctx.shadowBlur = 12;
+      ctx.fillStyle = "rgba(251,191,36,.95)";
+      ctx.beginPath(); ctx.arc(0,0,c.r,0,Math.PI*2); ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = "rgba(0,0,0,.35)";
+      ctx.font = "bold 12px system-ui";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText("৳", 0, 1);
+      ctx.restore();
+    }
+
+    // Airdrops
+    for(const d of airdrops){
+      if(!d.active) continue;
+      ctx.save();
+      ctx.translate(d.x, d.y);
+      const bob = Math.sin(performance.now()*0.004) * 4;
+      ctx.drawImage(DROP_IMG, -34, -34 + bob, 68, 68);
+      // ring
+      ctx.globalAlpha = 0.6;
+      ctx.strokeStyle = "rgba(96,165,250,.7)";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(0, 0, d.r + 8 + Math.sin(performance.now()*0.006)*2, 0, Math.PI*2);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // Zombies
+    for(const z of zombies){
+      ctx.save();
+      ctx.translate(z.x, z.y);
+
+      // Hit flash
+      if(z.hitFlash > 0){
+        ctx.globalAlpha = 0.85;
+        ctx.shadowColor = "rgba(52,211,153,.55)";
+        ctx.shadowBlur = 16;
+      } else {
+        ctx.shadowColor = "rgba(0,0,0,.35)";
+        ctx.shadowBlur = 14;
+      }
+
+      ctx.drawImage(ZOMBIE_IMG, -30, -34, 60, 60);
+      ctx.shadowBlur = 0;
+
+      // HP tiny bar
+      ctx.globalAlpha = 0.9;
+      ctx.fillStyle = "rgba(255,255,255,.12)";
+      ctx.fillRect(-22, 28, 44, 6);
+     const hpw = clamp(z.hp / (z.hpMax || 1), 0, 1) * 44;
+
+      ctx.fillStyle = "rgba(52,211,153,.85)";
+      ctx.fillRect(-22, 28, hpw, 6);
+
+      ctx.restore();
+    }
+// =====================
+// Player
+// =====================
+ctx.save();
+ctx.translate(player.x, player.y);
+
+// Shadow
+ctx.globalAlpha = 0.9;
+ctx.fillStyle = "rgba(0,0,0,.35)";
+ctx.beginPath();
+ctx.ellipse(0, 22, 18, 10, 0, 0, Math.PI * 2);
+ctx.fill();
+
+// =====================
+// Electric pole (BEHIND)
+// =====================
+const poleAngle = player.attackActive ? player.poleSpin : player.facing;
+const active = player.attackActive;
+
+ctx.save();
+
+// pivot near hero's "hand"
+ctx.translate(10, 6);
+ctx.rotate(poleAngle);
+
+// glow only when attacking
+if (active) {
+  ctx.shadowColor = "rgba(96,165,250,0.85)";
+  ctx.shadowBlur = 28;
+} else {
+  ctx.shadowBlur = 0;
+}
+
+// handle
+ctx.fillStyle = active
+  ? "rgba(220,230,255,0.95)"
+  : "rgba(210,210,210,0.95)";
+ctx.fillRect(0, -6, player.poleLen * 0.62, 12);
+
+// shaft (tapered)
+ctx.fillStyle = active
+  ? "rgba(248,250,252,0.98)"
+  : "rgba(245,245,245,0.92)";
+ctx.beginPath();
+ctx.moveTo(player.poleLen * 0.62, -5);
+ctx.lineTo(player.poleLen * 0.92, -3);
+ctx.lineTo(player.poleLen * 0.92,  3);
+ctx.lineTo(player.poleLen * 0.62,  5);
+ctx.closePath();
+ctx.fill();
+
+// electric coil head
+ctx.save();
+ctx.translate(player.poleLen * 0.96, 0);
+if (active) {
+  ctx.shadowColor = "rgba(96,165,250,0.9)";
+  ctx.shadowBlur = 18;
+}
+ctx.strokeStyle = active
+  ? "rgba(147,197,253,0.95)"
+  : "rgba(96,165,250,0.70)";
+ctx.lineWidth = 3;
+for (let i = 0; i < 5; i++) {
+  ctx.beginPath();
+  ctx.arc(0, 0, 6 + i * 2, 0, Math.PI * 2);
+  ctx.stroke();
+}
+ctx.restore();
+
+ctx.restore(); // end pole
+
+// =====================
+// Hero image (FRONT)
+// =====================
+ctx.shadowColor = "rgba(0,0,0,.35)";
+ctx.shadowBlur = 16;
+ctx.drawImage(HERO_IMG, -32, -42, 64, 64);
+ctx.shadowBlur = 0;
+
+// =====================
+// Invulnerability ring (TOP)
+// =====================
+if (player.invuln > 0) {
+  ctx.globalAlpha = 0.7;
+  ctx.strokeStyle = "rgba(251,113,133,.8)";
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.arc(0, 0, player.r + 8, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.globalAlpha = 1;
+}
+
+ctx.restore();
+
+
+
+
+    // World border
+    ctx.strokeStyle = "rgba(255,255,255,.12)";
+    ctx.lineWidth = 3;
+    ctx.strokeRect(0,0,world.w,world.h);
+
+    ctx.restore();
+
+    // Mini hints (paused overlay)
+    if(paused && running){
+      ctx.save();
+      ctx.fillStyle = "rgba(0,0,0,.35)";
+      ctx.fillRect(0,0,vw,vh);
+      ctx.fillStyle = "rgba(255,255,255,.92)";
+      ctx.textAlign = "center";
+      ctx.font = "900 22px system-ui";
+      ctx.fillText("Paused", vw/2, vh/2 - 10);
+      ctx.font = "500 13px system-ui";
+      ctx.fillStyle = "rgba(255,255,255,.75)";
+      ctx.fillText("Tap ▶︎ to continue", vw/2, vh/2 + 14);
+      ctx.restore();
+    }
+  }
+
+  function loop(t){
+    if(!running) return;
+    const now = t || performance.now();
+    let dt = (now - lastTime) / 1000;
+    lastTime = now;
+    dt = clamp(dt, 0, 0.033); // cap dt for stability
+    update(dt);
+    draw();
+    requestAnimationFrame(loop);
+  }
+
+  // ===== Game Over =====
+  async function gameOver(){
+    running = false;
+    paused = false;
+    pauseBtn.textContent = "⏸︎";
+
+await submitScoreReal(playerName, player.money);
+
+    // Game over message
+    say("চাঁদাবাজ ", `খেলাশেষ, ${playerName}. তোমার কালেকশন  ৳${player.money}. Zombies: 1, Us: 0.`);
+    // Show leaderboard
+  await renderLBReal();
+    modalBack.style.display = "flex";
+
+    // Bring back start after closing LB
+    const reShow = () => {
+      modalBack.style.display = "none";
+      showStart();
+      closeModal.removeEventListener('click', reShow);
+      modalBack.removeEventListener('click', onBackdrop);
+    };
+    const onBackdrop = (e)=>{ if(e.target === modalBack) reShow(); };
+
+    closeModal.addEventListener('click', reShow);
+    modalBack.addEventListener('click', onBackdrop);
+  }
+
+  // ===== Kickoff =====
+  showStart();
+})();
+</script>
+</body>
+</html>
